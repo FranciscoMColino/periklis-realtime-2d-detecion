@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolov8_image_sub= periklis_yolo.yolov8_image_sub:main'
+            'cv2_image_viz= periklis_yolo.cv2_image_viz:main',
+            'image_depth_sync= periklis_yolo.image_depth_sync:main'
         ],
     },
 )

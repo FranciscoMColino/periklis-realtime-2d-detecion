@@ -10,7 +10,7 @@ class ImageSubscriber(Node):
         super().__init__('yolov8_image_sub')
         self.subscription = self.create_subscription(
             Image,
-            '/zed/zed_node/left/image_rect_color',
+            '/zed/zed_node/left_original/image_rect_color',
             self.image_callback,
             2)
         self.subscription  # prevent unused variable warning
