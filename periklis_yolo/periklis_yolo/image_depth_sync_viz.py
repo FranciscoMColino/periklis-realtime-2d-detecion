@@ -20,15 +20,13 @@ class ImageDepthSyncVizSubscriber(Node):
         bgr_image = CvBridge().imgmsg_to_cv2(msg_image, desired_encoding='bgr8')
         depth_image = CvBridge().imgmsg_to_cv2(msg_depth, desired_encoding='passthrough')
         
+        resize_factor = 3
+
         # Resize the BGR image to half its original resolution
-        bgr_image_half = cv2.resize(bgr_image, (bgr_image.shape[1] // 2, bgr_image.shape[0] // 2))
+        bgr_image_half = cv2.resize(bgr_image, (bgr_image.shape[1] // resize_factor, bgr_image.shape[0] // resize_factor))
         
         # Resize the depth image to the same resolution as the resized BGR image
         depth_image_resized = cv2.resize(depth_image, (bgr_image_half.shape[1], bgr_image_half.shape[0]))
-
-        #count of nan values in depth image
-        nan_count = np.count_nonzero(np.isnan(depth_image_resized))
-        print("nan_count: ", nan_count)
 
         max_range = 50.0
         depth_image_normalized = depth_image_resized / max_range * 255.0
