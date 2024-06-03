@@ -25,7 +25,8 @@ setup(
         'console_scripts': [
             'cv2_image_viz= periklis_yolo.cv2_image_viz:main',
             'image_depth_sync= periklis_yolo.image_depth_sync:main',
-            'image_depth_sync_viz= periklis_yolo.image_depth_sync_viz:main'
+            'image_depth_sync_viz= periklis_yolo.image_depth_sync_viz:main',
+            'yolov8_cv2_viz= periklis_yolo.yolov8_cv2_viz:main'
         ],
     },
 )
