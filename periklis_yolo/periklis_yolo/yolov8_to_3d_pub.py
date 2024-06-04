@@ -161,6 +161,8 @@ class ImageDepthSyncVizSubscriber(Node):
 
                 ember_bbox = self.build_ember_bbox(points)
                 ember_bbox_array.boxes.append(ember_bbox)
+                ember_bbox.header = Header()
+                ember_bbox.header.stamp = msg_image.header.stamp
 
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
         
@@ -168,28 +170,6 @@ class ImageDepthSyncVizSubscriber(Node):
   
         cv2.imshow('YOLOv8 Detection', bgr_resized)
         cv2.waitKey(1)
-
-
-
-        # create mock ember bounding box
-        # ember_bbox = EmberBoundingBox3D()
-        # ember_bbox.corner1 = Point(x=0.0, y=0.0, z=0.0)
-        # ember_bbox.corner2 = Point(x=1.0, y=0.0, z=0.0)
-        # ember_bbox.corner3 = Point(x=1.0, y=1.0, z=0.0)
-        # ember_bbox.corner4 = Point(x=0.0, y=1.0, z=0.0)
-        # ember_bbox.corner5 = Point(x=0.0, y=0.0, z=1.0)
-        # ember_bbox.corner6 = Point(x=1.0, y=0.0, z=1.0)
-        # ember_bbox.corner7 = Point(x=1.0, y=1.0, z=1.0)
-        # ember_bbox.corner8 = Point(x=0.0, y=1.0, z=1.0)
-        # 
-        # ember_bbox_array = EmberBoundingBox3DArray()
-        # ember_bbox_array.header = Header()
-        # ember_bbox_array.header.stamp = msg_image.header.stamp
-        # ember_bbox_array.header.frame_id = "ember_bbox_frame"
-        # ember_bbox_array.boxes.append(ember_bbox)
-        #     
-        # self.bbox_pub.publish(ember_bbox_array)
-
 
 def main(args=None):
     rclpy.init(args=args)
