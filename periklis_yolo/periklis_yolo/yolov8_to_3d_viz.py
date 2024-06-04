@@ -55,6 +55,10 @@ class ImageDepthSyncVizSubscriber(Node):
         view_control.rotate(0, -525)
         view_control.rotate(500, 0)
 
+        # points thinner and lines thicker
+        self.vis.get_render_option().point_size = 2.0
+        self.vis.get_render_option().line_width = 10.0
+
     # http://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CameraInfo.html
     def callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
 
