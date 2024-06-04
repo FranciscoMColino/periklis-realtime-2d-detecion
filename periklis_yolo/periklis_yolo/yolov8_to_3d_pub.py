@@ -1,19 +1,5 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CameraInfo
-from sensor_msgs.msg import PointCloud2
-import sensor_msgs_py.point_cloud2 as pc2
-from message_filters import Subscriber, ApproximateTimeSynchronizer
-from cv_bridge import CvBridge
-import cv2
-import numpy as np
-import time
-from ultralytics import YOLO
-import open3d as o3d
-
-import rclpy
-from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2
 import sensor_msgs_py.point_cloud2 as pc2
 from message_filters import Subscriber, ApproximateTimeSynchronizer
@@ -161,10 +147,10 @@ class ImageDepthSyncVizSubscriber(Node):
 
                 ember_bbox = self.build_ember_bbox(points)
                 ember_bbox_array.boxes.append(ember_bbox)
-                ember_bbox.header = Header()
-                ember_bbox.header.stamp = msg_image.header.stamp
-
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
+        
+        ember_bbox_array.header = Header()
+        ember_bbox_array.header.stamp = msg_depth.header.stamp
         
         self.bbox_pub.publish(ember_bbox_array)
   
