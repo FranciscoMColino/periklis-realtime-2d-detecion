@@ -107,7 +107,10 @@ class ImageDepthSyncVizSubscriber(Node):
                 if len(depth_values_bb) == 0:
                     print('No finite depth values in the bounding box')
                     continue
-                min_depth, max_depth = np.min(depth_values_bb), np.max(depth_values_bb)
+                min_depth = np.min(depth_values_bb)
+            
+                percentile = 10
+                percentile_depth_values = np.percentile(depth_values_bb, percentile)
 
                 # check v1_d, v2_d, u1_d, u2_d bounds
                 v1_d = max(0, v1_d)
@@ -120,7 +123,7 @@ class ImageDepthSyncVizSubscriber(Node):
                 u2_d = min(depth_image.shape[1] - 1, u2_d)
                 
 
-                z1 = min_depth + 0.5
+                z1 = min_depth + percentile_depth_values * 0.1
 
                 if not np.isfinite(z1):
                     # use median depth value around the point
