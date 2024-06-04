@@ -14,7 +14,8 @@ setup(
     install_requires=['setuptools',
                       'numpy',
                       'sensor_msgs_py',
-                      'rclpy'],
+                      'rclpy'
+                      ],
     zip_safe=True,
     maintainer='colino',
     maintainer_email='francisco.m.colino@gmail.com',
@@ -28,6 +29,7 @@ setup(
             'image_depth_sync_viz= periklis_yolo.image_depth_sync_viz:main',
             'yolov8_cv2_viz= periklis_yolo.yolov8_cv2_viz:main',
             'yolov8_to_3d_viz= periklis_yolo.yolov8_to_3d_viz:main',
+            'yolov8_to_3d_pub= periklis_yolo.yolov8_to_3d_pub:main',
         ],
     },
 )

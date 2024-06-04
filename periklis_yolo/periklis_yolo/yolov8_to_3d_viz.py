@@ -168,7 +168,7 @@ class ImageDepthSyncVizSubscriber(Node):
 
                 self.vis.add_geometry(pcd, reset_bounding_box=False)
                 
-                bbox = pcd.get_axis_aligned_bounding_box()
+                bbox = pcd.get_oriented_bounding_box()
                 bbox.color = (1, 0, 0)
                 self.vis.add_geometry(bbox, reset_bounding_box=False)
  
