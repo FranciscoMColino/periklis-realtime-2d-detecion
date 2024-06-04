@@ -14,9 +14,7 @@ import open3d as o3d
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CameraInfo
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2
 import sensor_msgs_py.point_cloud2 as pc2
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from cv_bridge import CvBridge
@@ -28,7 +26,7 @@ import open3d as o3d
 
 from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3DArray
 from geometry_msgs.msg import Point
-from std_msgs.msg import Header
+from std_msgs.msg import Header, String, UInt32
 
 class ImageDepthSyncVizSubscriber(Node):
     def __init__(self):
@@ -106,16 +104,10 @@ class ImageDepthSyncVizSubscriber(Node):
     
     def build_ember_bbox(self, points):
         ember_bbox = EmberBoundingBox3D()
-        if points.shape != (8, 3):
-            return ember_bbox
-        ember_bbox.corner1 = Point(x=points[0, 0], y=points[0, 1], z=points[0, 2])
-        ember_bbox.corner2 = Point(x=points[1, 0], y=points[1, 1], z=points[1, 2])
-        ember_bbox.corner3 = Point(x=points[2, 0], y=points[2, 1], z=points[2, 2])
-        ember_bbox.corner4 = Point(x=points[3, 0], y=points[3, 1], z=points[3, 2])
-        ember_bbox.corner5 = Point(x=points[4, 0], y=points[4, 1], z=points[4, 2])
-        ember_bbox.corner6 = Point(x=points[5, 0], y=points[5, 1], z=points[5, 2])
-        ember_bbox.corner7 = Point(x=points[6, 0], y=points[6, 1], z=points[6, 2])
-        ember_bbox.corner8 = Point(x=points[7, 0], y=points[7, 1], z=points[7, 2])
+        for point in points:
+            ember_bbox.points.append(Point(x=point[0], y=point[1], z=point[2]))
+        ember_bbox.det_label = String(data='person')
+        ember_bbox.points_count = UInt32(data=len(points))
         return ember_bbox
 
     def draw_cv2_bounding_box(self, box, bbox, bgr_image):
