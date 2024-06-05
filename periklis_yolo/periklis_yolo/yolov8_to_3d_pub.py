@@ -47,32 +47,19 @@ class YoloTo3DPub(Node):
             return None
         min_depth = np.min(depth_values_bb)
 
-        percentile = 15
-        percentile_depth_values = np.percentile(depth_values_bb, percentile)
-
-        z1 =  percentile_depth_values * 1.15
-
-        if not np.isfinite(z1):
-            # use median depth value around the point
-            median_filter_radius = 3
-            z1 = np.nanmedian(depth_image[max(0, v1 - median_filter_radius):min(depth_image.shape[0] - 1, v1 + median_filter_radius), max(0, u1 - median_filter_radius):min(depth_image.shape[1] - 1, u1 + median_filter_radius)])
-
-
+        z1 = min_depth
         x1 = ((u1 - cx) * z1) / fx
         y1 = ((v1 - cy) * z1) / fy
 
-        x1, y1, z1 = z1, -x1, -y1
+        z_h = min_depth
+        x_h = ((u2 - cx) * z_h) / fx
+        #y_h = ((v2 - cy) * z_h) / fy
 
-        z2 = min_depth
-
-        if not np.isfinite(z2):
-            # use median depth value around the point
-            median_filter_radius = 3
-            z2 = np.nanmedian(depth_image[max(0, v2 - median_filter_radius):min(depth_image.shape[0] - 1, v2 + median_filter_radius), max(0, u2 - median_filter_radius):min(depth_image.shape[1] - 1, u2 + median_filter_radius)])
-
+        z2 = min_depth + np.abs(x_h - x1)
         x2 = ((u2 - cx) * z2) / fx
         y2 = ((v2 - cy) * z2) / fy
 
+        x1, y1, z1 = z1, -x1, -y1
         x2, y2, z2 = z2, -x2, -y2
 
         points = np.array([
