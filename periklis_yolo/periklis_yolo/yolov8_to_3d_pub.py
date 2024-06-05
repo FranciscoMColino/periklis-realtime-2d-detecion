@@ -14,9 +14,9 @@ from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3
 from geometry_msgs.msg import Point
 from std_msgs.msg import Header, String, UInt32
 
-class ImageDepthSyncVizSubscriber(Node):
+class YoloTo3DPub(Node):
     def __init__(self):
-        super().__init__('image_depth_sync_viz')
+        super().__init__('yolo_to_3d')
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
         self.camera_info_sub = Subscriber(self, CameraInfo, '/zed/zed_node/left_original/camera_info')
         self.depth_sub = Subscriber(self, Image, '/zed/zed_node/depth/depth_registered')
@@ -159,7 +159,7 @@ class ImageDepthSyncVizSubscriber(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ImageDepthSyncVizSubscriber()
+    node = YoloTo3DPub()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
