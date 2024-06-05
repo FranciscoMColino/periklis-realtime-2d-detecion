@@ -30,6 +30,7 @@ setup(
             'yolov8_cv2_viz= periklis_yolo.yolov8_cv2_viz:main',
             'yolov8_to_3d_viz= periklis_yolo.yolov8_to_3d_viz:main',
             'yolov8_to_3d_pub= periklis_yolo.yolov8_to_3d_pub:main',
+            'yolo_mask_3d_viz= periklis_yolo.yolo_mask_3d_viz:main',
         ],
     },
 )
