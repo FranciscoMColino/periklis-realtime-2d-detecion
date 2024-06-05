@@ -75,45 +75,52 @@ class YoloDepth3DViz(Node):
             return None
         min_depth = np.min(depth_values_bb)
 
-        try:
-            Z = depth_image[v1:v2, u1:u2].reshape(-1, 1)
-            # replace nan values with max value
-            Z = np.nan_to_num(Z, nan=np.nanmax(Z))
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-            K = 2
-            ret, label, center = cv2.kmeans(Z.astype(np.float32), K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-            center = np.uint8(center)
-            res = center[label.flatten()]
-            res2 = res.reshape((depth_image[v1:v2, u1:u2].shape))
-            cv2.imshow('res2', res2)
-            cv2.waitKey(1)
-        except Exception as e:
-            print(f'Error in kmeans {e}')
+        if (False):
+            try:
+                Z = depth_image[v1:v2, u1:u2].reshape(-1, 1)
+                # replace nan values with max value
+                Z = np.nan_to_num(Z, nan=np.nanmax(Z))
+                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+                K = 2
+                ret, label, center = cv2.kmeans(Z.astype(np.float32), K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
 
-        z1 = min_depth + 0.1
+                sorted_indices = np.argsort(center.flatten())
+                color_map = np.array([[0, 0, 0],  # Black
+                                    [255, 255, 255]],  # White
+                                    dtype=np.uint8)
 
-        if not np.isfinite(z1):
-            # use median depth value around the point
-            median_filter_radius = 3
-            z1 = np.nanmedian(depth_image[max(0, v1 - median_filter_radius):min(depth_image.shape[0] - 1, v1 + median_filter_radius), max(0, u1 - median_filter_radius):min(depth_image.shape[1] - 1, u1 + median_filter_radius)])
+                sorted_label = np.zeros_like(label)
+                sorted_label[label == sorted_indices[0]] = 1
+                sorted_label[label == sorted_indices[1]] = 0
 
+                relevant_label = sorted_label[label == sorted_indices[0]]
+                relevant_label = relevant_label.reshape((depth_image[v1:v2, u1:u2].shape[0], depth_image[v1:v2, u1:u2].shape[1]))
+
+                # Map sorted labels to the corresponding colors
+                res = color_map[sorted_label.flatten()]
+
+                # Reshape the result back to the original image shape (with color channels)
+                res2 = res.reshape((depth_image[v1:v2, u1:u2].shape[0], depth_image[v1:v2, u1:u2].shape[1], 3))
+
+                # Display the result
+                cv2.imshow('res2', res2)
+                cv2.waitKey(1)
+            except Exception as e:
+                print(f'Error in kmeans {e}')
+
+        z1 = min_depth
         x1 = ((u1 - cx) * z1) / fx
         y1 = ((v1 - cy) * z1) / fy
 
-        #z1 = min_depth + 
+        z_h = min_depth
+        x_h = ((u2 - cx) * z_h) / fx
+        #y_h = ((v2 - cy) * z_h) / fy
 
-        x1, y1, z1 = z1, -x1, -y1
-
-        z2 = min_depth
-
-        if not np.isfinite(z2):
-            # use median depth value around the point
-            median_filter_radius = 3
-            z2 = np.nanmedian(depth_image[max(0, v2 - median_filter_radius):min(depth_image.shape[0] - 1, v2 + median_filter_radius), max(0, u2 - median_filter_radius):min(depth_image.shape[1] - 1, u2 + median_filter_radius)])
-
+        z2 = min_depth + np.abs(x_h - x1)
         x2 = ((u2 - cx) * z2) / fx
         y2 = ((v2 - cy) * z2) / fy
 
+        x1, y1, z1 = z1, -x1, -y1
         x2, y2, z2 = z2, -x2, -y2
 
         points = np.array([
