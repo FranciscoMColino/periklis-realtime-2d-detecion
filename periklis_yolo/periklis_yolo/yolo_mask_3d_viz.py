@@ -25,7 +25,7 @@ class YoloMask3DBbox(Node):
         self.vis.create_window('Open3D', width=640, height=480)
         self.setup_visualizer()
 
-        self.model = YOLO('yolov8n.engine')
+        self.model = YOLO('yolov8n-seg.engine')
 
     def setup_visualizer(self):
         # Add 8 points to initiate the visualizer's bounding box
@@ -124,6 +124,16 @@ class YoloMask3DBbox(Node):
         color = (0, 255, 0)
         cv2.rectangle(bgr_image, (u1, v1), (u2, v2), color, 2)
         cv2.putText(bgr_image, label, (u1, v1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+    def draw_cv2_mask(self, mask, bbox, bgr_image):
+        u1, v1, u2, v2 = bbox
+        mask = mask[0, :, :]
+        mask = cv2.resize(mask, (u2 - u1, v2 - v1))
+        mask = (mask > 0.5).astype(np.uint8) * 255
+        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+        mask = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
+        mask = cv2.addWeighted(bgr_image[v1:v2, u1:u2], 0.5, mask, 0.5, 0)
+        bgr_image[v1:v2, u1:u2] = mask
         
 
     def callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
@@ -154,7 +164,10 @@ class YoloMask3DBbox(Node):
 
         for result in results:
             boxes = result.boxes
-            # masks = result.masks TODO
+            masks = result.masks
+            #print(f'boxes: {len(boxes)}, masks: {len(masks)}')
+            print(f'boxes: {type(boxes)}, masks: {type(masks)}')
+
             for i in range(len(boxes)):
 
                 # if class is not person, skip
