@@ -75,39 +75,6 @@ class YoloDepth3DViz(Node):
             return None
         min_depth = np.min(depth_values_bb)
 
-        if (False):
-            try:
-                Z = depth_image[v1:v2, u1:u2].reshape(-1, 1)
-                # replace nan values with max value
-                Z = np.nan_to_num(Z, nan=np.nanmax(Z))
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-                K = 2
-                ret, label, center = cv2.kmeans(Z.astype(np.float32), K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-
-                sorted_indices = np.argsort(center.flatten())
-                color_map = np.array([[0, 0, 0],  # Black
-                                    [255, 255, 255]],  # White
-                                    dtype=np.uint8)
-
-                sorted_label = np.zeros_like(label)
-                sorted_label[label == sorted_indices[0]] = 1
-                sorted_label[label == sorted_indices[1]] = 0
-
-                relevant_label = sorted_label[label == sorted_indices[0]]
-                relevant_label = relevant_label.reshape((depth_image[v1:v2, u1:u2].shape[0], depth_image[v1:v2, u1:u2].shape[1]))
-
-                # Map sorted labels to the corresponding colors
-                res = color_map[sorted_label.flatten()]
-
-                # Reshape the result back to the original image shape (with color channels)
-                res2 = res.reshape((depth_image[v1:v2, u1:u2].shape[0], depth_image[v1:v2, u1:u2].shape[1], 3))
-
-                # Display the result
-                cv2.imshow('res2', res2)
-                cv2.waitKey(1)
-            except Exception as e:
-                print(f'Error in kmeans {e}')
-
         z1 = min_depth
         x1 = ((u1 - cx) * z1) / fx
         y1 = ((v1 - cy) * z1) / fy
