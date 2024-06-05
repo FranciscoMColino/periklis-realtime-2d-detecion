@@ -55,7 +55,7 @@ class YoloMask3DBbox(Node):
         self.vis.get_render_option().point_size = 2.0
         self.vis.get_render_option().line_width = 10.0
 
-    def compute_points_from_bbox(self, bbox, resize_factor, fx, fy, cx, cy, depth_image):
+    def compute_points_from_bbox(self, bbox, mask, resize_factor, fx, fy, cx, cy, depth_image):
         u1, v1, u2, v2 = bbox // resize_factor
 
         # check v1, v2, u1, u2 bounds
@@ -68,30 +68,51 @@ class YoloMask3DBbox(Node):
         u2 = max(0, u2)
         u2 = min(depth_image.shape[1] - 1, u2)
 
-        depth_values_bb = depth_image[v1:v2, u1:u2]
-        depth_values_bb = depth_values_bb[np.isfinite(depth_values_bb)]
-        if len(depth_values_bb) == 0:
-            print('No finite depth values in the bounding box')
-            return None
-        min_depth = np.min(depth_values_bb)
+        # get points that inside the mask which is a polygon
+        mask = mask / resize_factor
+        mask = mask.reshape(-1, 2).astype(np.int32)
 
-        percentile = 15
-        percentile_depth_values = np.percentile(depth_values_bb, percentile)
+        # Create a grid of points within the bounding box
+        x_range = np.arange(u1, u2 + 1)
+        y_range = np.arange(v1, v2 + 1)
+        xv, yv = np.meshgrid(x_range, y_range)
+        grid_points = np.vstack((xv.flatten(), yv.flatten())).T
+        print(f'grid_points: {grid_points.shape}')
 
-        z1 =  percentile_depth_values * 1.15
+        # Check if points are inside the polygon
+        inside_points = []
+        for point in grid_points:
+            if cv2.pointPolygonTest(mask, (float(point[0]), float(point[1])), False) >= 0:
+                inside_points.append(point)
+
+        if len(inside_points) == 0:
+            print('No points inside the mask')
+            depth_values_bb = depth_image[v1:v2, u1:u2]
+            depth_values_bb = depth_values_bb[np.isfinite(depth_values_bb)]
+            depth_values_mean = np.mean(depth_values_bb)
+            depth_values_std = np.std(depth_values_bb)
+        else:
+            inside_points = np.array(inside_points)
+            depth_values_detection = depth_image[inside_points[:, 1], inside_points[:, 0]]
+            depth_values_detection = depth_values_detection[np.isfinite(depth_values_detection)]
+            depth_values_mean = np.mean(depth_values_detection)
+            depth_values_std = np.std(depth_values_detection)
+
+        print(f'depth_values_mean: {depth_values_mean}, depth_values_std: {depth_values_std}')
+
+        z1 =  depth_values_mean - 1
 
         if not np.isfinite(z1):
             # use median depth value around the point
             median_filter_radius = 3
             z1 = np.nanmedian(depth_image[max(0, v1 - median_filter_radius):min(depth_image.shape[0] - 1, v1 + median_filter_radius), max(0, u1 - median_filter_radius):min(depth_image.shape[1] - 1, u1 + median_filter_radius)])
 
-
         x1 = ((u1 - cx) * z1) / fx
         y1 = ((v1 - cy) * z1) / fy
 
         x1, y1, z1 = z1, -x1, -y1
 
-        z2 = min_depth
+        z2 = depth_values_mean
 
         if not np.isfinite(z2):
             # use median depth value around the point
@@ -125,15 +146,10 @@ class YoloMask3DBbox(Node):
         cv2.rectangle(bgr_image, (u1, v1), (u2, v2), color, 2)
         cv2.putText(bgr_image, label, (u1, v1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-    def draw_cv2_mask(self, mask, bbox, bgr_image):
-        u1, v1, u2, v2 = bbox
-        mask = mask[0, :, :]
-        mask = cv2.resize(mask, (u2 - u1, v2 - v1))
-        mask = (mask > 0.5).astype(np.uint8) * 255
-        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        mask = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
-        mask = cv2.addWeighted(bgr_image[v1:v2, u1:u2], 0.5, mask, 0.5, 0)
-        bgr_image[v1:v2, u1:u2] = mask
+    def draw_cv2_mask(self, mask, bgr_image):
+        mask = mask.reshape(-1, 2).astype(np.int32)
+        # add a color overlay to points inside the mask
+        cv2.fillPoly(bgr_image, [mask], (0, 0, 255))
         
 
     def callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
@@ -174,10 +190,17 @@ class YoloMask3DBbox(Node):
                 if boxes[i].cls[0].item() != 0:
                     continue
 
-                u1, v1, u2, v2 = map(int, boxes[i].xyxy[0].tolist())
+                box = np.array(boxes[i].xyxy[0].tolist())
+                mask = masks[i].xy[0].tolist()
+                mask = np.array(mask)
 
-                points = self.compute_points_from_bbox(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
+                u1, v1, u2, v2 = map(int, box)
+
+                points = self.compute_points_from_bbox(np.array([u1, v1, u2, v2]), mask, bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
+
+                
+                self.draw_cv2_mask(mask, bgr_resized)
         
                 # Display computed bounding box o3d
                 pcd = o3d.geometry.PointCloud()
