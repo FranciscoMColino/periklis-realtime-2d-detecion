@@ -9,9 +9,9 @@ import numpy as np
 from ultralytics import YOLO
 import open3d as o3d
 
-from periklis_yolo.utils import compute_points_from_bbox
+from periklis_yolo.utils import *
 
-class YoloDepth3DViz(Node):
+class YoloTo3DViz(Node):
     def __init__(self):
         super().__init__('yolo_to_3d')
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
@@ -105,15 +105,17 @@ class YoloDepth3DViz(Node):
 
                 u1, v1, u2, v2 = map(int, box)
 
-                points = compute_points_from_bbox(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
+                points = compute_points_from_bbox_2(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
-                
+
+        
                 # Display computed bounding box o3d
                 pcd = o3d.geometry.PointCloud()
                 pcd.points = o3d.utility.Vector3dVector(points)
                 self.vis.add_geometry(pcd, reset_bounding_box=False)
+                pcd.paint_uniform_color([1, 0, 0])
 
-                bbox = pcd.get_oriented_bounding_box()
+                bbox = pcd.get_axis_aligned_bounding_box()
                 bbox.color = (1, 0, 0)
                 self.vis.add_geometry(bbox, reset_bounding_box=False)
 
@@ -134,7 +136,7 @@ class YoloDepth3DViz(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = YoloDepth3DViz()
+    node = YoloTo3DViz()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
