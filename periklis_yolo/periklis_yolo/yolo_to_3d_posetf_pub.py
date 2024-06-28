@@ -126,12 +126,12 @@ class YoloTo3DPoseTransformPub(Node):
         cx /= zed_ros2_wrapper_downscale_factor
         cy /= zed_ros2_wrapper_downscale_factor
 
-        bgr_resized = cv2.resize(bgr_image, (bgr_image.shape[1] // bgr_detection_resize_factor, bgr_image.shape[0] // bgr_detection_resize_factor))
-        results = self.model(bgr_resized)[0]
-
         transformation_matrix = None
         if self.current_pose is not None:
             transformation_matrix = pose_msg_to_transform_matrix(self.current_pose)
+
+        bgr_resized = cv2.resize(bgr_image, (bgr_image.shape[1] // bgr_detection_resize_factor, bgr_image.shape[0] // bgr_detection_resize_factor))
+        results = self.model(bgr_resized)[0]
 
         # data 3d visualization
         o3d_vis_input_data = {
