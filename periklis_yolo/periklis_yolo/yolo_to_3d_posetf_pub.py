@@ -11,10 +11,11 @@ from ultralytics import YOLO
 import open3d as o3d
 
 from periklis_yolo.utils import *
+from periklis_yolo.visualization.o3d_detect_viz import Open3DDetectVisualizer
 
-class YoloTo3DViz(Node):
+class YoloTo3DPoseTransformPub(Node):
     def __init__(self):
-        super().__init__('yolo_to_3d')
+        super().__init__('yolo_to_3d_pose_transform')
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
         self.camera_info_sub = Subscriber(self, CameraInfo, '/zed/zed_node/left_original/camera_info')
         self.depth_sub = Subscriber(self, Image, '/zed/zed_node/depth/depth_registered')
@@ -32,39 +33,9 @@ class YoloTo3DViz(Node):
         self.pose_subscription
         self.current_pose = None
 
-        self.vis = o3d.visualization.Visualizer()
-        self.vis.create_window('Open3D', width=640, height=480)
-        self.setup_visualizer()
+        self.visualizer = Open3DDetectVisualizer()
 
         self.model = YOLO('yolov8n.engine')
-
-    def setup_visualizer(self):
-        # Add 8 points to initiate the visualizer's bounding box
-        points = np.array([
-            [0, 0, 0],
-            [0, 0, 1],
-            [0, 1, 0],
-            [0, 1, 1],
-            [10, 0, 0],
-            [10, 0, 1],
-            [10, 1, 0],
-            [10, 1, 1]
-        ])
-
-        points *= 4
-
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-
-        self.vis.add_geometry(pcd, reset_bounding_box=True)
-
-        view_control = self.vis.get_view_control()
-        view_control.rotate(0, -525)
-        view_control.rotate(500, 0)
-
-        # points thinner and lines thicker
-        self.vis.get_render_option().point_size = 2.0
-        self.vis.get_render_option().line_width = 10.0
 
     def draw_cv2_bounding_box(self, box, bbox, bgr_image):
         u1, v1, u2, v2 = bbox
@@ -81,8 +52,7 @@ class YoloTo3DViz(Node):
 
     def main_callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
         
-        self.vis.clear_geometries()
-        self.vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5), reset_bounding_box=False)
+        self.visualizer.reset()
 
         fx, fy = msg_camera_info.k[0], msg_camera_info.k[4]
         cx, cy = msg_camera_info.k[2], msg_camera_info.k[5]
@@ -120,8 +90,6 @@ class YoloTo3DViz(Node):
 
                 u1, v1, u2, v2 = map(int, box)
 
-                self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
-
                 parent_point_1, parent_point_2 = compute_parents_from_bbox(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
 
                 if transformation_matrix is not None:
@@ -129,39 +97,20 @@ class YoloTo3DViz(Node):
                     parent_point_2 = apply_transformation(parent_point_2, transformation_matrix)
 
                 bbox3d_points = compute_3d_bbox_from_parents_2(parent_point_1, parent_point_2)
-        
-                # Display computed bounding box o3d
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(bbox3d_points)
-                self.vis.add_geometry(pcd, reset_bounding_box=False)
-                pcd.paint_uniform_color([1, 0, 0])
 
-                bbox = pcd.get_axis_aligned_bounding_box()
-                bbox.color = (1, 0, 0)
-                self.vis.add_geometry(bbox, reset_bounding_box=False)
+                self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
+                self.visualizer.draw_bbox(bbox3d_points)
 
         cv2.imshow('YOLOv8 Detection', bgr_resized)
         cv2.waitKey(1)
 
-        pc2_points = pc2.read_points_numpy(msg_pointcloud, field_names=('x', 'y', 'z'), skip_nans=True)
-        pc2_points_64 = pc2_points.astype(np.float64)
-        valid_idx = np.isfinite(pc2_points_64[:, 0]) & np.isfinite(pc2_points_64[:, 1]) & np.isfinite(pc2_points_64[:, 2])
-        pc2_points_64 = pc2_points_64[valid_idx]
-
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(pc2_points_64)
-        
-        if transformation_matrix is not None:
-            pcd.transform(transformation_matrix)
-
-        self.vis.add_geometry(pcd, reset_bounding_box=False)
-
-        self.vis.poll_events()
-        self.vis.update_renderer()
+        pc2_points_64 = pc2_msg_to_numpy(msg_pointcloud)
+        self.visualizer.draw_pointcloud(pc2_points_64, transformation_matrix)
+        self.visualizer.render()
 
 def main(args=None):
     rclpy.init(args=args)
-    node = YoloTo3DViz()
+    node = YoloTo3DPoseTransformPub()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

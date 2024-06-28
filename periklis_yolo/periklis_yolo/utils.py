@@ -1,5 +1,7 @@
 import numpy as np
 
+import sensor_msgs_py.point_cloud2 as pc2
+
 def compute_points_from_bbox(bbox, resize_factor, fx, fy, cx, cy, depth_image):
         u1, v1, u2, v2 = bbox // resize_factor
 
@@ -360,3 +362,13 @@ def apply_transformation(point, transformation_matrix):
     point_h = np.append(point, 1)  # Convert to homogeneous coordinates
     transformed_point_h = transformation_matrix @ point_h  # Matrix multiplication
     return transformed_point_h[:3]  # Convert back to 3D coordinates
+
+"""
+Convert a PointCloud2 message to a numpy array, compatible with Open3D.
+"""
+def pc2_msg_to_numpy(msg):
+    pc2_points = pc2.read_points_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
+    pc2_points_64 = pc2_points.astype(np.float64)
+    valid_idx = np.isfinite(pc2_points_64[:, 0]) & np.isfinite(pc2_points_64[:, 1]) & np.isfinite(pc2_points_64[:, 2])
+    pc2_points_64 = pc2_points_64[valid_idx]
+    return pc2_points_64
