@@ -12,8 +12,17 @@ import signal
 
 from periklis_yolo.utils import *
 from periklis_yolo.visualization.o3d_detect_viz import Open3DDetectVisualizer
+from periklis_yolo.visualization.cv2_detect_viz import OpenCV2DetectVisualizer
 
 def o3d_vis_worker(o3d_vis_input_queue):
+
+    def sigint_handler(sig, frame):
+        o3d_vis_input_queue.put(None)
+        exit(0)
+
+    # sigint exit
+    signal.signal(signal.SIGINT, sigint_handler)
+
     visualizer = Open3DDetectVisualizer()
     while True:
         data = o3d_vis_input_queue.get()
@@ -23,11 +32,35 @@ def o3d_vis_worker(o3d_vis_input_queue):
         bboxes = data['bboxes']
         for bbox in bboxes:
             visualizer.draw_bbox(bbox)
-        visualizer.draw_pointcloud(data['pointcloud'], data['transformation_matrix'])
+        pc2_points_64 = pc2_msg_to_numpy(data['pointcloud_msg'])
+        visualizer.draw_pointcloud(pc2_points_64, data['transformation_matrix'])
         visualizer.render()
 
+def cv2_vis_worker(cv2_vis_input_queue):
+
+    def sigint_handler(sig, frame):
+        cv2_vis_input_queue.put(None)
+        exit(0)
+
+    # sigint exit
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    visualizer = OpenCV2DetectVisualizer()
+    while True:
+        data = cv2_vis_input_queue.get()
+        if data is None:
+            break
+        bgr_image = data['bgr_image']
+        bboxes_data = data['bboxes']
+        for bbox_data in bboxes_data:
+            bbox_label = bbox_data['label']
+            bbox_points = bbox_data['points']
+            visualizer.draw_cv2_bounding_box(bbox_points, bbox_label, bgr_image)
+        cv2.imshow(visualizer.window_name, bgr_image)
+        cv2.waitKey(1)
+
 class YoloTo3DPoseTransformPub(Node):
-    def __init__(self, o3d_vis_input_queue):
+    def __init__(self, o3d_vis_input_queue, cv2_vis_input_queue):
         super().__init__('yolo_to_3d_pose_transform')
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
         self.camera_info_sub = Subscriber(self, CameraInfo, '/zed/zed_node/left_original/camera_info')
@@ -49,6 +82,7 @@ class YoloTo3DPoseTransformPub(Node):
         self.model = YOLO('yolov8n.engine')
 
         self.o3d_vis_input_queue = o3d_vis_input_queue
+        self.cv2_vis_input_queue = cv2_vis_input_queue
 
     def draw_cv2_bounding_box(self, box, bbox, bgr_image):
         u1, v1, u2, v2 = bbox
@@ -89,8 +123,13 @@ class YoloTo3DPoseTransformPub(Node):
 
         o3d_vis_input_data = {
             'bboxes': [],
-            'pointcloud': None,
+            'pointcloud_msg': None,
             'transformation_matrix': transformation_matrix
+        }
+
+        cv2_vis_input_data = {
+            'bgr_image': bgr_resized,
+            'bboxes': []
         }
 
         for result in results:
@@ -114,39 +153,51 @@ class YoloTo3DPoseTransformPub(Node):
 
                 bbox3d_points = compute_3d_bbox_from_parents_2(parent_point_1, parent_point_2)
 
-                self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
+                confidence = boxes[i].conf[0].item()
+                class_id = int(boxes[i].cls[0].item())
+                label = f'{self.model.names[class_id]}: {confidence:.2f}'
+
+                cv2_vis_input_data['bboxes'].append({
+                    'label': label,
+                    'points': (u1, v1, u2, v2)
+                })
 
                 o3d_vis_input_data['bboxes'].append(bbox3d_points)
 
-        cv2.imshow('YOLOv8 Detection', bgr_resized)
-        cv2.waitKey(1)
-
-        pc2_points_64 = pc2_msg_to_numpy(msg_pointcloud)
-        o3d_vis_input_data['pointcloud'] = pc2_points_64
+        o3d_vis_input_data['pointcloud_msg'] = msg_pointcloud
         
         self.o3d_vis_input_queue.put(o3d_vis_input_data)
+        self.cv2_vis_input_queue.put(cv2_vis_input_data)
 
-def signal_handler(sig, frame, node, process, queue):
+def signal_handler(sig, frame, node, process_1, queue_1, process_2, queue_2):
     print('Exiting via signal handler...')
-    queue.put(None)  # Signal the process to exit
-    process.terminate()
-    process.join()
+    queue_1.put(None)
+    queue_2.put(None)
+    process_1.terminate()
+    process_1.join()
+    process_2.terminate()
+    process_2.join()
     node.destroy_node()
-    rclpy.shutdown()
-    
+    if rclpy.ok():
+        rclpy.shutdown()
 
 def main(args=None):
 
     o3d_vis_input_queue = multiprocessing.Queue()
+    cv2_vis_input_queue = multiprocessing.Queue()
+
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue, cv2_vis_process, cv2_vis_input_queue))
 
     o3d_vis_process = multiprocessing.Process(target=o3d_vis_worker, args=(o3d_vis_input_queue,))
     o3d_vis_process.start()
 
-    rclpy.init(args=args)
-    node = YoloTo3DPoseTransformPub(o3d_vis_input_queue)
-    
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue))
+    cv2_vis_process = multiprocessing.Process(target=cv2_vis_worker, args=(cv2_vis_input_queue,))
+    cv2_vis_process.start()
 
+    rclpy.init(args=args)
+    node = YoloTo3DPoseTransformPub(o3d_vis_input_queue, cv2_vis_input_queue)
+    
+    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -154,8 +205,11 @@ def main(args=None):
     finally:
         print('Exiting via finally...')
         o3d_vis_input_queue.put(None)
+        cv2_vis_input_queue.put(None)
         o3d_vis_process.terminate()
         o3d_vis_process.join()
+        cv2_vis_process.terminate()
+        cv2_vis_process.join()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
