@@ -10,6 +10,8 @@ from ultralytics import YOLO
 import multiprocessing
 import signal
 
+from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3DArray
+
 from periklis_yolo.utils import *
 from periklis_yolo.visualization.o3d_detect_viz import Open3DDetectVisualizer
 from periklis_yolo.visualization.cv2_detect_viz import OpenCV2DetectVisualizer
@@ -76,6 +78,8 @@ class YoloTo3DPoseTransformPub(Node):
             self.pose_callback,
             10)
         
+        self.detection_pub = self.create_publisher(EmberBoundingBox3DArray, 'ember_detection/ember_bounding_boxes', 10)
+        
         self.pose_subscription
         self.current_pose = None
 
@@ -121,16 +125,20 @@ class YoloTo3DPoseTransformPub(Node):
         if self.current_pose is not None:
             transformation_matrix = pose_msg_to_transform_matrix(self.current_pose)
 
+        # data 3d visualization
         o3d_vis_input_data = {
             'bboxes': [],
             'pointcloud_msg': None,
             'transformation_matrix': transformation_matrix
         }
 
+        # data 2d visualization
         cv2_vis_input_data = {
             'bgr_image': bgr_resized,
             'bboxes': []
         }
+
+        ember_bbox_array = EmberBoundingBox3DArray()
 
         for result in results:
             boxes = result.boxes
@@ -164,7 +172,14 @@ class YoloTo3DPoseTransformPub(Node):
 
                 o3d_vis_input_data['bboxes'].append(bbox3d_points)
 
+                ember_bbox = build_ember_bbox(bbox3d_points)
+                ember_bbox_array.boxes.append(ember_bbox)
+
         o3d_vis_input_data['pointcloud_msg'] = msg_pointcloud
+
+        ember_bbox_array.header = Header()
+        ember_bbox_array.header.stamp = msg_depth.header.stamp
+        self.detection_pub.publish(ember_bbox_array)
         
         self.o3d_vis_input_queue.put(o3d_vis_input_data)
         self.cv2_vis_input_queue.put(cv2_vis_input_data)

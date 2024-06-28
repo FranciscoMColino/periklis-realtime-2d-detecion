@@ -2,6 +2,10 @@ import numpy as np
 
 import sensor_msgs_py.point_cloud2 as pc2
 
+from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3DArray
+from geometry_msgs.msg import Point
+from std_msgs.msg import Header, String, UInt32
+
 def compute_points_from_bbox(bbox, resize_factor, fx, fy, cx, cy, depth_image):
         u1, v1, u2, v2 = bbox // resize_factor
 
@@ -164,7 +168,6 @@ def compute_points_from_bbox_2(bbox, resize_factor, fx, fy, cx, cy, depth_image)
     ])
 
     return points
-
 
 """
 Compute the parent points from a bounding box
@@ -372,3 +375,11 @@ def pc2_msg_to_numpy(msg):
     valid_idx = np.isfinite(pc2_points_64[:, 0]) & np.isfinite(pc2_points_64[:, 1]) & np.isfinite(pc2_points_64[:, 2])
     pc2_points_64 = pc2_points_64[valid_idx]
     return pc2_points_64
+
+def build_ember_bbox(points):
+        ember_bbox = EmberBoundingBox3D()
+        for point in points:
+            ember_bbox.points.append(Point(x=point[0], y=point[1], z=point[2]))
+        ember_bbox.det_label = String(data='person')
+        ember_bbox.points_count = UInt32(data=len(points))
+        return ember_bbox
