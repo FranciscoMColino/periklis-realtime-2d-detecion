@@ -76,6 +76,7 @@ class YoloTo3DViz(Node):
         cv2.putText(bgr_image, label, (u1, v1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
     def pose_callback(self, msg):
+        print('Received pose')
         self.current_pose = msg
 
     def main_callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
@@ -121,11 +122,17 @@ class YoloTo3DViz(Node):
 
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
 
-                points = compute_points_from_bbox_2(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
+                parent_point_1, parent_point_2 = compute_parents_from_bbox(np.array([u1, v1, u2, v2]), bgr_resized_to_depth_ratio, fx, fy, cx, cy, depth_image)
+
+                if transformation_matrix is not None:
+                    parent_point_1 = apply_transformation(parent_point_1, transformation_matrix)
+                    parent_point_2 = apply_transformation(parent_point_2, transformation_matrix)
+
+                bbox3d_points = compute_3d_bbox_from_parents(parent_point_1, parent_point_2)
         
                 # Display computed bounding box o3d
                 pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(points)
+                pcd.points = o3d.utility.Vector3dVector(bbox3d_points)
                 self.vis.add_geometry(pcd, reset_bounding_box=False)
                 pcd.paint_uniform_color([1, 0, 0])
 
@@ -143,6 +150,10 @@ class YoloTo3DViz(Node):
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(pc2_points_64)
+        
+        if transformation_matrix is not None:
+            pcd.transform(transformation_matrix)
+
         self.vis.add_geometry(pcd, reset_bounding_box=False)
 
         self.vis.poll_events()

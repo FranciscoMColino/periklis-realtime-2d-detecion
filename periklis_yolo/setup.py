@@ -33,6 +33,7 @@ setup(
             'depr_yolo_mask_3d_viz= periklis_yolo.depr_yolo_mask_3d_viz:main',
             'yolo_depth_3d_viz= periklis_yolo.yolo_depth_3d_viz:main',
             'yolo_to_3d_viz= periklis_yolo.yolo_to_3d_viz:main',
+            'yolo_to_3d_posetf_viz= periklis_yolo.yolo_to_3d_posetf_viz:main',
         ],
     },
 )
