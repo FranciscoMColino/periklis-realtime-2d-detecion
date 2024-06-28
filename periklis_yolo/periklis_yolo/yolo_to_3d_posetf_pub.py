@@ -219,13 +219,13 @@ def main(args=None):
     o3d_vis_input_queue = multiprocessing.Queue()
     cv2_vis_input_queue = multiprocessing.Queue()
 
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue, cv2_vis_process, cv2_vis_input_queue))
-
     o3d_vis_process = multiprocessing.Process(target=o3d_vis_worker, args=(o3d_vis_input_queue,))
     o3d_vis_process.start()
 
     cv2_vis_process = multiprocessing.Process(target=cv2_vis_worker, args=(cv2_vis_input_queue,))
     cv2_vis_process.start()
+
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue, cv2_vis_process, cv2_vis_input_queue))
 
     rclpy.init(args=args)
     node = YoloTo3DPoseTransformPub(parsed_args.config_file, parsed_args.model_file,
