@@ -25,15 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'cv2_image_viz= periklis_yolo.cv2_image_viz:main',
-            'image_depth_sync= periklis_yolo.image_depth_sync:main',
-            'image_depth_sync_viz= periklis_yolo.image_depth_sync_viz:main',
-            'depr_yolov8_cv2_viz= periklis_yolo.depr_yolov8_cv2_viz:main',
-            'depr_yolov8_to_3d_viz= periklis_yolo.depr_yolov8_to_3d_viz:main',
-            'depr_yolov8_to_3d_pub= periklis_yolo.depr_yolov8_to_3d_pub:main',
-            'depr_yolo_mask_3d_viz= periklis_yolo.depr_yolo_mask_3d_viz:main',
-            'yolo_depth_3d_viz= periklis_yolo.yolo_depth_3d_viz:main',
-            'yolo_to_3d_viz= periklis_yolo.yolo_to_3d_viz:main',
-            'yolo_to_3d_posetf_viz= periklis_yolo.yolo_to_3d_posetf_viz:main',
+            'yolo_mask_3d_viz= periklis_yolo.yolo_mask_3d_viz:main',
             'yolo_to_3d_posetf_pub= periklis_yolo.yolo_to_3d_posetf_pub:main',
         ],
     },
