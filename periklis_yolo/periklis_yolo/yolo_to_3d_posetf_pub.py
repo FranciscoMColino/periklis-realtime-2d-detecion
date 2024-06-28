@@ -2,19 +2,32 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2
 from geometry_msgs.msg import PoseStamped
-import sensor_msgs_py.point_cloud2 as pc2
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
 from ultralytics import YOLO
-import open3d as o3d
+import multiprocessing
+import signal
 
 from periklis_yolo.utils import *
 from periklis_yolo.visualization.o3d_detect_viz import Open3DDetectVisualizer
 
+def o3d_vis_worker(o3d_vis_input_queue):
+    visualizer = Open3DDetectVisualizer()
+    while True:
+        data = o3d_vis_input_queue.get()
+        if data is None:
+            break
+        visualizer.reset()
+        bboxes = data['bboxes']
+        for bbox in bboxes:
+            visualizer.draw_bbox(bbox)
+        visualizer.draw_pointcloud(data['pointcloud'], data['transformation_matrix'])
+        visualizer.render()
+
 class YoloTo3DPoseTransformPub(Node):
-    def __init__(self):
+    def __init__(self, o3d_vis_input_queue):
         super().__init__('yolo_to_3d_pose_transform')
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
         self.camera_info_sub = Subscriber(self, CameraInfo, '/zed/zed_node/left_original/camera_info')
@@ -33,9 +46,9 @@ class YoloTo3DPoseTransformPub(Node):
         self.pose_subscription
         self.current_pose = None
 
-        self.visualizer = Open3DDetectVisualizer()
-
         self.model = YOLO('yolov8n.engine')
+
+        self.o3d_vis_input_queue = o3d_vis_input_queue
 
     def draw_cv2_bounding_box(self, box, bbox, bgr_image):
         u1, v1, u2, v2 = bbox
@@ -47,12 +60,9 @@ class YoloTo3DPoseTransformPub(Node):
         cv2.putText(bgr_image, label, (u1, v1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
     def pose_callback(self, msg):
-        print('Received pose')
         self.current_pose = msg
 
     def main_callback(self, msg_image, msg_camera_info, msg_depth, msg_pointcloud):
-        
-        self.visualizer.reset()
 
         fx, fy = msg_camera_info.k[0], msg_camera_info.k[4]
         cx, cy = msg_camera_info.k[2], msg_camera_info.k[5]
@@ -77,6 +87,12 @@ class YoloTo3DPoseTransformPub(Node):
         if self.current_pose is not None:
             transformation_matrix = pose_msg_to_transform_matrix(self.current_pose)
 
+        o3d_vis_input_data = {
+            'bboxes': [],
+            'pointcloud': None,
+            'transformation_matrix': transformation_matrix
+        }
+
         for result in results:
             boxes = result.boxes
 
@@ -99,25 +115,51 @@ class YoloTo3DPoseTransformPub(Node):
                 bbox3d_points = compute_3d_bbox_from_parents_2(parent_point_1, parent_point_2)
 
                 self.draw_cv2_bounding_box(boxes[i], (u1, v1, u2, v2), bgr_resized)
-                self.visualizer.draw_bbox(bbox3d_points)
+
+                o3d_vis_input_data['bboxes'].append(bbox3d_points)
 
         cv2.imshow('YOLOv8 Detection', bgr_resized)
         cv2.waitKey(1)
 
         pc2_points_64 = pc2_msg_to_numpy(msg_pointcloud)
-        self.visualizer.draw_pointcloud(pc2_points_64, transformation_matrix)
-        self.visualizer.render()
+        o3d_vis_input_data['pointcloud'] = pc2_points_64
+        
+        self.o3d_vis_input_queue.put(o3d_vis_input_data)
+
+def signal_handler(sig, frame, node, process, queue):
+    print('Exiting via signal handler...')
+    queue.put(None)  # Signal the process to exit
+    process.terminate()
+    process.join()
+    node.destroy_node()
+    rclpy.shutdown()
+    
 
 def main(args=None):
+
+    o3d_vis_input_queue = multiprocessing.Queue()
+
+    o3d_vis_process = multiprocessing.Process(target=o3d_vis_worker, args=(o3d_vis_input_queue,))
+    o3d_vis_process.start()
+
     rclpy.init(args=args)
-    node = YoloTo3DPoseTransformPub()
+    node = YoloTo3DPoseTransformPub(o3d_vis_input_queue)
+    
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue))
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
+        print('Exiting via finally...')
+        o3d_vis_input_queue.put(None)
+        o3d_vis_process.terminate()
+        o3d_vis_process.join()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
+        
 
 if __name__ == '__main__':
     main()
