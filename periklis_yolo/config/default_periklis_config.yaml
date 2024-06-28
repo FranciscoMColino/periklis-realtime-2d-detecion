@@ -1,0 +1,2 @@
+bgr_resize_factor: 4
+zed_ros2_wrapper_downscale_factor: 8

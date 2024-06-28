@@ -9,6 +9,9 @@ import numpy as np
 from ultralytics import YOLO
 import multiprocessing
 import signal
+import argparse
+import yaml
+import os
 
 from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3DArray
 
@@ -62,8 +65,12 @@ def cv2_vis_worker(cv2_vis_input_queue):
         cv2.waitKey(1)
 
 class YoloTo3DPoseTransformPub(Node):
-    def __init__(self, o3d_vis_input_queue, cv2_vis_input_queue):
+    def __init__(self, config_file, model_file,
+                 o3d_vis_input_queue, cv2_vis_input_queue):
         super().__init__('yolo_to_3d_pose_transform')
+
+        self.load_config(config_file)
+
         self.image_sub = Subscriber(self, Image, '/zed/zed_node/left_original/image_rect_color')
         self.camera_info_sub = Subscriber(self, CameraInfo, '/zed/zed_node/left_original/camera_info')
         self.depth_sub = Subscriber(self, Image, '/zed/zed_node/depth/depth_registered')
@@ -83,19 +90,21 @@ class YoloTo3DPoseTransformPub(Node):
         self.pose_subscription
         self.current_pose = None
 
-        self.model = YOLO('yolov8n.engine')
+        self.model = YOLO(model_file) # default model file is yolov8n.engine
 
         self.o3d_vis_input_queue = o3d_vis_input_queue
         self.cv2_vis_input_queue = cv2_vis_input_queue
 
-    def draw_cv2_bounding_box(self, box, bbox, bgr_image):
-        u1, v1, u2, v2 = bbox
-        confidence = box.conf[0].item()
-        class_id = int(box.cls[0].item())
-        label = f'{self.model.names[class_id]}: {confidence:.2f}'
-        color = (0, 255, 0)
-        cv2.rectangle(bgr_image, (u1, v1), (u2, v2), color, 2)
-        cv2.putText(bgr_image, label, (u1, v1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+    def load_config(self, config_file):
+        if config_file is not None:
+            with open(config_file, 'r') as f:
+                config = yaml.safe_load(f)
+                try:
+                    self.bgr_resize_factor = config['bgr_resize_factor']
+                    self.zed_ros2_wrapper_downscale_factor = config['zed_ros2_wrapper_downscale_factor']
+                except KeyError as e:
+                    self.get_logger().error(f'Error loading config file: {e}')
+                    exit(1)
 
     def pose_callback(self, msg):
         self.current_pose = msg
@@ -111,7 +120,7 @@ class YoloTo3DPoseTransformPub(Node):
         # TODO read this settings from config file
         bgr_detection_resize_factor = 4
         zed_ros2_wrapper_downscale_factor = 8
-        bgr_resized_to_depth_ratio = 2
+        bgr_resized_to_depth_ratio = int(zed_ros2_wrapper_downscale_factor / bgr_detection_resize_factor)
 
         fx /= zed_ros2_wrapper_downscale_factor
         fy /= zed_ros2_wrapper_downscale_factor
@@ -198,6 +207,16 @@ def signal_handler(sig, frame, node, process_1, queue_1, process_2, queue_2):
 
 def main(args=None):
 
+    # argument parsing
+    parser = argparse.ArgumentParser(description='Yolo detection to 3D boundingbox with pose transform Publisher')
+    parser.add_argument('--config_file', type=str, help='Path to config file',
+                        default='src/periklis_yolo/config/yolo_to_3d_pose_transform.yaml')
+    parser.add_argument('--model_file', type=str, help='Path to model file', 
+                        default='src/periklis_yolo/models/yolov8n.engine')
+    parsed_args = parser.parse_args()
+
+    print(f'Arguments: {parsed_args}')
+
     o3d_vis_input_queue = multiprocessing.Queue()
     cv2_vis_input_queue = multiprocessing.Queue()
 
@@ -210,8 +229,8 @@ def main(args=None):
     cv2_vis_process.start()
 
     rclpy.init(args=args)
-    node = YoloTo3DPoseTransformPub(o3d_vis_input_queue, cv2_vis_input_queue)
-    
+    node = YoloTo3DPoseTransformPub(parsed_args.config_file, parsed_args.model_file,
+        o3d_vis_input_queue, cv2_vis_input_queue)
     
     try:
         rclpy.spin(node)
