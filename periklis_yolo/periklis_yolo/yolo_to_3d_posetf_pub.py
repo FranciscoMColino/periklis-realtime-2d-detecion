@@ -117,9 +117,8 @@ class YoloTo3DPoseTransformPub(Node):
         bgr_image = CvBridge().imgmsg_to_cv2(msg_image, desired_encoding='bgr8')
         depth_image = CvBridge().imgmsg_to_cv2(msg_depth, desired_encoding='passthrough')
 
-        # TODO read this settings from config file
-        bgr_detection_resize_factor = 4
-        zed_ros2_wrapper_downscale_factor = 8
+        bgr_detection_resize_factor = self.bgr_resize_factor
+        zed_ros2_wrapper_downscale_factor = self.zed_ros2_wrapper_downscale_factor
         bgr_resized_to_depth_ratio = int(zed_ros2_wrapper_downscale_factor / bgr_detection_resize_factor)
 
         fx /= zed_ros2_wrapper_downscale_factor
