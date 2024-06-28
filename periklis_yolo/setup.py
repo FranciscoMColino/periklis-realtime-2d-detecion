@@ -34,6 +34,7 @@ setup(
             'yolo_depth_3d_viz= periklis_yolo.yolo_depth_3d_viz:main',
             'yolo_to_3d_viz= periklis_yolo.yolo_to_3d_viz:main',
             'yolo_to_3d_posetf_viz= periklis_yolo.yolo_to_3d_posetf_viz:main',
+            'yolo_to_3d_posetf_pub= periklis_yolo.yolo_to_3d_posetf_pub:main',
         ],
     },
 )
