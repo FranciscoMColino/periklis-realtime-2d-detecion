@@ -269,6 +269,30 @@ def compute_3d_bbox_from_parents(parent_point_1, parent_point_2):
 
     return points
 
+def compute_3d_bbox_from_parents_2(parent_point_1, parent_point_2):
+
+    z1, z2 = parent_point_1[2], parent_point_2[2]
+
+    parent_point_1[2] = 0 # set z to 0
+    parent_point_2[2] = 0 # set z to 0
+
+    center = (parent_point_1 + parent_point_2) / 2
+    
+    dist_parents = np.linalg.norm(parent_point_1 - parent_point_2)
+
+    points = np.array([
+        [center[0] + dist_parents/2, center[1], z1,],
+        [center[0] - dist_parents/2, center[1], z1,],
+        [center[0] + dist_parents/2, center[1], z2,],
+        [center[0] - dist_parents/2, center[1], z2,],
+        [center[0], center[1] + dist_parents/2, z1,],
+        [center[0], center[1] - dist_parents/2, z1,],
+        [center[0], center[1] + dist_parents/2, z2,],
+        [center[0], center[1] - dist_parents/2, z2]
+    ])
+
+    return points
+
 def rotate_point_2d(point, theta):
     x, y = point
 

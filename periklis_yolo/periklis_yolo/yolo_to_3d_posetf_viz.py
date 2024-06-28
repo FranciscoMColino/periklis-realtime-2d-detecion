@@ -128,7 +128,7 @@ class YoloTo3DViz(Node):
                     parent_point_1 = apply_transformation(parent_point_1, transformation_matrix)
                     parent_point_2 = apply_transformation(parent_point_2, transformation_matrix)
 
-                bbox3d_points = compute_3d_bbox_from_parents(parent_point_1, parent_point_2)
+                bbox3d_points = compute_3d_bbox_from_parents_2(parent_point_1, parent_point_2)
         
                 # Display computed bounding box o3d
                 pcd = o3d.geometry.PointCloud()
