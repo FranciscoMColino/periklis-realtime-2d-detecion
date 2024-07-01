@@ -21,6 +21,12 @@ from periklis_yolo.visualization.cv2_detect_viz import OpenCV2DetectVisualizer
 
 def o3d_vis_worker(o3d_vis_input_queue):
 
+    global visualize_flag
+
+    if not visualize_flag:
+        # should not be here
+        return
+
     def sigint_handler(sig, frame):
         o3d_vis_input_queue.put(None)
         exit(0)
@@ -42,6 +48,12 @@ def o3d_vis_worker(o3d_vis_input_queue):
         visualizer.render()
 
 def cv2_vis_worker(cv2_vis_input_queue):
+
+    global visualize_flag
+
+    if not visualize_flag:
+        # should not be here
+        return
 
     def sigint_handler(sig, frame):
         cv2_vis_input_queue.put(None)
@@ -190,17 +202,21 @@ class YoloTo3DPoseTransformPub(Node):
         ember_bbox_array.header.stamp = msg_depth.header.stamp
         self.detection_pub.publish(ember_bbox_array)
         
-        self.o3d_vis_input_queue.put(o3d_vis_input_data)
-        self.cv2_vis_input_queue.put(cv2_vis_input_data)
+        if visualize_flag:
+            self.o3d_vis_input_queue.put(o3d_vis_input_data)
+            self.cv2_vis_input_queue.put(cv2_vis_input_data)
 
 def signal_handler(sig, frame, node, process_1, queue_1, process_2, queue_2):
+    global visualize_flag
     print('Exiting via signal handler...')
-    queue_1.put(None)
-    queue_2.put(None)
-    process_1.terminate()
-    process_1.join()
-    process_2.terminate()
-    process_2.join()
+
+    if visualize_flag:
+        queue_1.put(None)
+        queue_2.put(None)
+        process_1.terminate()
+        process_1.join()
+        process_2.terminate()
+        process_2.join()
     node.destroy_node()
     if rclpy.ok():
         rclpy.shutdown()
@@ -213,18 +229,26 @@ def main(args=None):
                         default='src/periklis_yolo/config/yolo_to_3d_pose_transform.yaml')
     parser.add_argument('--model_file', type=str, help='Path to model file', 
                         default='src/periklis_yolo/models/yolov8n.engine')
+    parser.add_argument('--visualize', action='store_true', help='Enable visualization', default=False)
     parsed_args = parser.parse_args()
 
     print(f'Arguments: {parsed_args}')
 
-    o3d_vis_input_queue = multiprocessing.Queue()
-    cv2_vis_input_queue = multiprocessing.Queue()
+    global visualize_flag
+    visualize_flag = parsed_args.visualize
 
-    o3d_vis_process = multiprocessing.Process(target=o3d_vis_worker, args=(o3d_vis_input_queue,))
-    o3d_vis_process.start()
-
-    cv2_vis_process = multiprocessing.Process(target=cv2_vis_worker, args=(cv2_vis_input_queue,))
-    cv2_vis_process.start()
+    if visualize_flag:
+        o3d_vis_input_queue = multiprocessing.Queue()
+        cv2_vis_input_queue = multiprocessing.Queue()
+        o3d_vis_process = multiprocessing.Process(target=o3d_vis_worker, args=(o3d_vis_input_queue,))
+        o3d_vis_process.start()
+        cv2_vis_process = multiprocessing.Process(target=cv2_vis_worker, args=(cv2_vis_input_queue,))
+        cv2_vis_process.start()
+    else:
+        o3d_vis_input_queue = None
+        cv2_vis_input_queue = None
+        o3d_vis_process = None
+        cv2_vis_process = None
 
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, node, o3d_vis_process, o3d_vis_input_queue, cv2_vis_process, cv2_vis_input_queue))
 
@@ -238,12 +262,13 @@ def main(args=None):
         pass
     finally:
         print('Exiting via finally...')
-        o3d_vis_input_queue.put(None)
-        cv2_vis_input_queue.put(None)
-        o3d_vis_process.terminate()
-        o3d_vis_process.join()
-        cv2_vis_process.terminate()
-        cv2_vis_process.join()
+        if visualize_flag:
+            o3d_vis_input_queue.put(None)
+            cv2_vis_input_queue.put(None)
+            o3d_vis_process.terminate()
+            o3d_vis_process.join()
+            cv2_vis_process.terminate()
+            cv2_vis_process.join()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
