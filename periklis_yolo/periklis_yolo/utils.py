@@ -337,6 +337,7 @@ def quaternion_to_rotation_matrix(q):
                   [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]])
     return R
 
+# TODO in reality this is receiveing a PoseStamped msg, change that
 def pose_msg_to_transform_matrix(msg):
     pose = msg.pose
     translation = np.array([pose.position.x,

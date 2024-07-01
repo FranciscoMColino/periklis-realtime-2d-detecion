@@ -102,6 +102,7 @@ class YoloTo3DPoseTransformPub(Node):
                 try:
                     self.bgr_resize_factor = config['bgr_resize_factor']
                     self.zed_ros2_wrapper_downscale_factor = config['zed_ros2_wrapper_downscale_factor']
+                    self.transform_pose = config['transform_pose']
                 except KeyError as e:
                     self.get_logger().error(f'Error loading config file: {e}')
                     exit(1)
@@ -127,7 +128,7 @@ class YoloTo3DPoseTransformPub(Node):
         cy /= zed_ros2_wrapper_downscale_factor
 
         transformation_matrix = None
-        if self.current_pose is not None:
+        if self.current_pose is not None and self.transform_pose:
             transformation_matrix = pose_msg_to_transform_matrix(self.current_pose)
 
         bgr_resized = cv2.resize(bgr_image, (bgr_image.shape[1] // bgr_detection_resize_factor, bgr_image.shape[0] // bgr_detection_resize_factor))
@@ -208,7 +209,7 @@ def main(args=None):
 
     # argument parsing
     parser = argparse.ArgumentParser(description='Yolo detection to 3D boundingbox with pose transform Publisher')
-    parser.add_argument('--config_file', type=str, help='Path to config file',
+    parser.add_argument('config_file', type=str, help='Path to config file',
                         default='src/periklis_yolo/config/yolo_to_3d_pose_transform.yaml')
     parser.add_argument('--model_file', type=str, help='Path to model file', 
                         default='src/periklis_yolo/models/yolov8n.engine')
