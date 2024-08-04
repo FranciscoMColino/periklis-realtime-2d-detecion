@@ -26,7 +26,7 @@ setup(
         'console_scripts': [
             'cv2_image_viz= periklis_yolo.cv2_image_viz:main',
             'yolo_mask_3d_viz= periklis_yolo.yolo_mask_3d_viz:main',
-            'yolo_to_3d_posetf_pub= periklis_yolo.yolo_to_3d_posetf_pub:main',
+            'main_yolo_to_3d_posetf_pub= periklis_yolo.main_yolo_to_3d_posetf_pub:main',
         ],
     },
 )
