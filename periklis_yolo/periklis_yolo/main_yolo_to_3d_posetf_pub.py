@@ -12,6 +12,7 @@ import signal
 import argparse
 import yaml
 import os
+import time
 
 from ember_detection_interfaces.msg import EmberBoundingBox3D, EmberBoundingBox3DArray
 
@@ -36,6 +37,12 @@ def o3d_vis_worker(o3d_vis_input_queue):
 
     visualizer = Open3DDetectVisualizer()
     while True:
+        
+        if o3d_vis_input_queue.empty():
+            visualizer.render()
+            time.sleep(1/120)
+            continue
+
         data = o3d_vis_input_queue.get()
         if data is None:
             break
